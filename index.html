@@ -19,9 +19,21 @@
     </div>
 
     <div id="hud">
-      <div class="player p1"><b>CYAN</b><span>W A S D</span></div>
+      <div class="seat p1">
+        <b>CYAN</b>
+        <select id="ctrl-p1" aria-label="Cyan controller"></select>
+        <span class="keys" id="keys-p1">W A S D</span>
+        <p class="blurb" id="blurb-p1"></p>
+      </div>
+
       <button id="restart">RESTART (R)</button>
-      <div class="player p2"><b>MAGENTA</b><span>ARROW KEYS</span></div>
+
+      <div class="seat p2">
+        <b>MAGENTA</b>
+        <select id="ctrl-p2" aria-label="Magenta controller"></select>
+        <span class="keys" id="keys-p2">ARROW KEYS</span>
+        <p class="blurb" id="blurb-p2"></p>
+      </div>
     </div>
   </main>
 

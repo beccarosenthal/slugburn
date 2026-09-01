@@ -1,5 +1,6 @@
 import { createGame, startPlaying, queueTurn, step, outcomeText } from './state.js';
 import { render } from './render.js';
+import { ALGORITHMS, byId } from './ai.js';
 
 const COLS = 60;
 const ROWS = 40;
@@ -19,6 +20,9 @@ const KEYS = {
   KeyW: ['p1', 'up'], KeyS: ['p1', 'down'], KeyA: ['p1', 'left'], KeyD: ['p1', 'right'],
   ArrowUp: ['p2', 'up'], ArrowDown: ['p2', 'down'], ArrowLeft: ['p2', 'left'], ArrowRight: ['p2', 'right'],
 };
+
+// 'human' or an algorithm id from ai.js
+const controllers = { p1: 'human', p2: 'hugger' };
 
 let state;
 let frame = 0;
@@ -47,6 +51,38 @@ function setBanner(text, sub) {
   bannerSub.textContent = sub ?? '';
 }
 
+// --- seat / controller UI ---------------------------------------------------
+
+function buildSeat(slugId) {
+  const select = document.getElementById(`ctrl-${slugId}`);
+  const blurb = document.getElementById(`blurb-${slugId}`);
+  const keys = document.getElementById(`keys-${slugId}`);
+
+  const human = new Option('Human', 'human');
+  select.add(human);
+  for (const algo of ALGORITHMS) select.add(new Option(`AI — ${algo.name}`, algo.id));
+  select.value = controllers[slugId];
+
+  const sync = () => {
+    controllers[slugId] = select.value;
+    const algo = byId(select.value);
+    blurb.textContent = algo ? algo.blurb : '';
+    keys.hidden = Boolean(algo);
+  };
+
+  select.addEventListener('change', () => {
+    sync();
+    reset(); // swapping a driver mid-round would be unfair to the survivor
+  });
+
+  sync();
+}
+
+buildSeat('p1');
+buildSeat('p2');
+
+// --- input ------------------------------------------------------------------
+
 addEventListener('keydown', (e) => {
   if (e.code === 'KeyR') { reset(); return; }
   if (e.code === 'KeyP' || e.code === 'Escape') {
@@ -58,11 +94,26 @@ addEventListener('keydown', (e) => {
   }
   const bind = KEYS[e.code];
   if (!bind) return;
+  if (controllers[bind[0]] !== 'human') return; // don't fight the AI for the wheel
   e.preventDefault(); // stop arrow keys scrolling the page
   state = queueTurn(state, bind[0], bind[1]);
 });
 
 document.getElementById('restart').addEventListener('click', reset);
+
+// Ask every AI-driven slug for a direction, then queue it through exactly the
+// same path a keypress takes — so the no-reversal rule applies to AI too, and
+// an algorithm can't cheat by writing to state directly.
+function driveAI() {
+  for (const slug of state.slugs) {
+    if (!slug.alive) continue;
+    const algo = byId(controllers[slug.id]);
+    if (!algo) continue;
+    const opponent = state.slugs.find((s) => s.id !== slug.id);
+    const dir = algo.pick(state, slug, opponent);
+    if (dir) state = queueTurn(state, slug.id, dir);
+  }
+}
 
 function loop(now) {
   const dt = now - last;
@@ -85,6 +136,7 @@ function loop(now) {
     acc += dt;
     while (acc >= TICK_MS) {
       acc -= TICK_MS;
+      driveAI();
       const before = state;
       state = step(state);
       if (state.phase === 'over') {
