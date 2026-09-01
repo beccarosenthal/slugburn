@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Slugburn — tests</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    #report { width: min(880px, 92vw); padding: 28px 0 60px; }
+    #summary {
+      display: flex; align-items: baseline; gap: 14px;
+      padding: 14px 18px; margin-bottom: 26px;
+      border: 1px solid rgba(123,77,255,0.5); border-radius: 6px;
+      letter-spacing: 2px;
+    }
+    #summary .count { font-size: 22px; }
+    #summary.pass .count { color: #4dffb0; text-shadow: 0 0 12px rgba(77,255,176,0.7); }
+    #summary.fail .count { color: #ff5c7a; text-shadow: 0 0 12px rgba(255,92,122,0.7); }
+    #summary .meta { font-size: 11px; opacity: 0.55; }
+    h2 {
+      margin: 26px 0 10px; font-size: 12px; letter-spacing: 3px;
+      color: var(--cyan); text-transform: uppercase; opacity: 0.85;
+    }
+    ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+    li {
+      display: grid; grid-template-columns: 18px 1fr auto; gap: 10px;
+      align-items: baseline; padding: 5px 8px; border-radius: 4px;
+      font-size: 12px; line-height: 1.5;
+    }
+    li.fail { background: rgba(255,92,122,0.1); }
+    .mark { font-size: 13px; }
+    li.pass .mark { color: #4dffb0; }
+    li.fail .mark { color: #ff5c7a; }
+    .ms { font-size: 10px; opacity: 0.4; font-variant-numeric: tabular-nums; }
+    .why {
+      grid-column: 2 / -1; margin-top: 4px; padding-left: 10px;
+      border-left: 2px solid rgba(255,92,122,0.6);
+      color: #ff9db0; font-size: 11px; white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <main id="report">
+    <h1>SLUG<span>BURN</span></h1>
+    <div id="summary"><span class="count">running…</span></div>
+    <div id="results"></div>
+  </main>
+
+  <script type="module">
+    import { run } from './tests/index.js';
+
+    const { results, summary } = run();
+
+    const summaryEl = document.getElementById('summary');
+    summaryEl.className = summary.failed ? 'fail' : 'pass';
+    summaryEl.innerHTML = `
+      <span class="count">${summary.passed}/${summary.total} passed</span>
+      <span class="meta">${summary.failed} failed · ${summary.ms}ms</span>`;
+
+    const out = document.getElementById('results');
+    let lastSuite = null;
+    let list = null;
+
+    for (const r of results) {
+      if (r.suite !== lastSuite) {
+        const h = document.createElement('h2');
+        h.textContent = r.suite;
+        out.append(h);
+        list = document.createElement('ul');
+        out.append(list);
+        lastSuite = r.suite;
+      }
+
+      const li = document.createElement('li');
+      li.className = r.ok ? 'pass' : 'fail';
+      li.innerHTML = `
+        <span class="mark">${r.ok ? '✓' : '✗'}</span>
+        <span class="name"></span>
+        <span class="ms">${r.ms > 5 ? r.ms + 'ms' : ''}</span>`;
+      li.querySelector('.name').textContent = r.name;
+
+      if (!r.ok) {
+        const why = document.createElement('div');
+        why.className = 'why';
+        why.textContent = r.error.message;
+        li.append(why);
+      }
+      list.append(li);
+    }
+
+    // Let the browser-automation check read a single value.
+    window.__testSummary = summary;
+  </script>
+</body>
+</html>

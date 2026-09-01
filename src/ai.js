@@ -11,7 +11,7 @@
 //   cartographer — every cell it could ever reach (flood fill)
 //   strategist   — every cell, plus every cell the OPPONENT could reach
 
-import { DIRS } from './state.js';
+import { DIRS, queueTurn } from './state.js';
 
 const OPPOSITE = { up: 'down', down: 'up', left: 'right', right: 'left' };
 const ORDER = ['up', 'right', 'down', 'left'];
@@ -221,3 +221,24 @@ export const ALGORITHMS = [
 ];
 
 export const byId = (id) => ALGORITHMS.find((a) => a.id === id) ?? null;
+
+// Ask every AI-driven slug for a direction and queue it.
+//
+// `controllers` maps slug id -> 'human' | algorithm id. Anything that isn't a
+// known algorithm is left alone, so human seats fall through untouched.
+//
+// Turns go through queueTurn — the same function a keypress calls — so the
+// no-reversal rule applies to AI for free and no algorithm can write to state
+// directly. Both the browser loop and the test harness call this, so tests
+// exercise the real decision path rather than a reimplementation of it.
+export function driveAI(state, controllers) {
+  for (const slug of state.slugs) {
+    if (!slug.alive) continue;
+    const algo = byId(controllers[slug.id]);
+    if (!algo) continue;
+    const opponent = state.slugs.find((s) => s.id !== slug.id);
+    const dir = algo.pick(state, slug, opponent);
+    if (dir) state = queueTurn(state, slug.id, dir);
+  }
+  return state;
+}

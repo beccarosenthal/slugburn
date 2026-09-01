@@ -1,6 +1,6 @@
 import { createGame, startPlaying, queueTurn, step, outcomeText } from './state.js';
 import { render } from './render.js';
-import { ALGORITHMS, byId } from './ai.js';
+import { ALGORITHMS, byId, driveAI } from './ai.js';
 
 const COLS = 60;
 const ROWS = 40;
@@ -101,20 +101,6 @@ addEventListener('keydown', (e) => {
 
 document.getElementById('restart').addEventListener('click', reset);
 
-// Ask every AI-driven slug for a direction, then queue it through exactly the
-// same path a keypress takes — so the no-reversal rule applies to AI too, and
-// an algorithm can't cheat by writing to state directly.
-function driveAI() {
-  for (const slug of state.slugs) {
-    if (!slug.alive) continue;
-    const algo = byId(controllers[slug.id]);
-    if (!algo) continue;
-    const opponent = state.slugs.find((s) => s.id !== slug.id);
-    const dir = algo.pick(state, slug, opponent);
-    if (dir) state = queueTurn(state, slug.id, dir);
-  }
-}
-
 function loop(now) {
   const dt = now - last;
   last = now;
@@ -136,7 +122,7 @@ function loop(now) {
     acc += dt;
     while (acc >= TICK_MS) {
       acc -= TICK_MS;
-      driveAI();
+      state = driveAI(state, controllers);
       const before = state;
       state = step(state);
       if (state.phase === 'over') {
