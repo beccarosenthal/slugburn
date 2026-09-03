@@ -38,6 +38,21 @@ export function scenario({ cols = 20, rows = 12, phase = 'playing', slugs }) {
 
 export const get = (state, id) => state.slugs.find((s) => s.id === id);
 
+// Seeded PRNG (mulberry32). Same shape as Math.random — zero args, returns
+// [0,1) — so it drops straight into driveAI. Deterministic per seed, which is
+// what makes a game involving Drunk or Cautious replayable: a failure reports
+// its seed and can be reproduced exactly instead of being re-rolled away.
+export function makeRng(seed) {
+  let a = seed >>> 0;
+  return function rng() {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 // A horizontal run of cells, for building walls out of a slug's trail.
 export function row(y, fromX, toX) {
   const cells = [];
@@ -47,20 +62,21 @@ export function row(y, fromX, toX) {
 
 // Play a complete game with no browser involved. Returns the final state, how
 // many ticks it took, and every state along the way for invariant checking.
-export function playGame(p1Algo, p2Algo, { cols = 24, rows = 16, maxTicks = 2000 } = {}) {
+export function playGame(p1Algo, p2Algo, { cols = 24, rows = 16, maxTicks = 2000, seed = 1 } = {}) {
   const controllers = { p1: p1Algo, p2: p2Algo };
+  const rng = makeRng(seed);
   let state = startPlaying(createGame({ cols, rows }));
   const history = [state];
   let ticks = 0;
 
   while (state.phase === 'playing' && ticks < maxTicks) {
-    state = driveAI(state, controllers);
+    state = driveAI(state, controllers, rng);
     state = step(state);
     history.push(state);
     ticks++;
   }
 
-  return { state, ticks, history, hitCap: ticks >= maxTicks };
+  return { state, ticks, history, hitCap: ticks >= maxTicks, seed };
 }
 
 const OPPOSITE_DELTA = (a, b) => a.x === b.x && a.y === b.y;

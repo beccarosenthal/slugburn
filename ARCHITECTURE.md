@@ -116,6 +116,14 @@ Asserted after every tick of complete AI-vs-AI games in
 - **No slug ever reverses** — checked geometrically (cell *n+1* is never cell
   *n−1*), so it catches an illegal 180 from any code path, human or AI.
 
+**Randomness is injected, not reached for.** Drunk and Cautious take an `rng`
+argument that defaults to `Math.random`, and `driveAI` threads it through. The
+browser passes nothing and behaves exactly as before; tests pass a seeded
+mulberry32 from `tests/helpers.js`, so any game — including one involving the
+random algorithms — replays identically and a failure is reproducible from its
+seed. Before this, asserting anything about a Drunk or Cautious game was a coin
+flip, and the suite went red roughly one run in five.
+
 ---
 
 ## 6. Known warts
@@ -141,7 +149,7 @@ Asserted after every tick of complete AI-vs-AI games in
 ```bash
 python3 serve.py
 # game  → http://localhost:8123
-# tests → http://localhost:8123/tests.html   expect 65/65
+# tests → http://localhost:8123/tests.html   expect 67/67
 
 node tests/run.js   # optional, needs Node 18+
 ```
@@ -152,5 +160,5 @@ resolution, the win banner, and rendering without touching a key.
 
 Confidence check on the tests themselves: break the reversal rule in
 `queueTurn()` on purpose (compare against `s.pending` instead of `s.dir`) and
-confirm the suite drops to 64/65. If it stays green you're looking at a cached
+confirm the suite drops to 66/67. If it stays green you're looking at a cached
 module, not a passing test.

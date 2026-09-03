@@ -3,7 +3,7 @@
 // tuned.
 
 import { suite, test, assert, eq, includes } from './harness.js';
-import { scenario, get, row } from './helpers.js';
+import { scenario, get, row, makeRng } from './helpers.js';
 import { ALGORITHMS, byId, driveAI } from '../src/ai.js';
 import { DIRS, step } from '../src/state.js';
 
@@ -66,16 +66,39 @@ suite('sighted algorithms avoid immediate death', () => {
     });
   }
 
-  for (const id of SIGHTED) {
+  // Play an empty board for 30 ticks under a known seed. Deterministic, so a
+  // failure is reproducible from the seed rather than a coin flip.
+  function survives(id, seed, ticks = 30) {
+    const rng = makeRng(seed);
+    let s = open();
+    for (let i = 0; i < ticks && s.phase === 'playing'; i++) {
+      s = driveAI(s, { p1: id, p2: id }, rng);
+      s = step(s);
+    }
+    return get(s, 'p1').alive;
+  }
+
+  // The space-aware three see the whole reachable region, so surviving an open
+  // board is a guarantee, not a tendency. One seed is enough to pin it.
+  for (const id of ['hugger', 'cartographer', 'strategist']) {
     test(`${byId(id).name} survives 30 ticks of an empty board`, () => {
-      let s = open();
-      for (let i = 0; i < 30 && s.phase === 'playing'; i++) {
-        s = driveAI(s, { p1: id, p2: id });
-        s = step(s);
-      }
-      assert(get(s, 'p1').alive, `${id} died on an open board`);
+      assert(survives(id, 1), `${id} died on an open board`);
     });
   }
+
+  // Cautious is deliberately not in that loop. It looks exactly one cell ahead,
+  // so it genuinely does wander into a dead end sometimes — that weakness is
+  // the whole reason Cartographer exists. Asserting it *always* survives is
+  // what made this suite fail roughly one run in six; over a fixed seed set the
+  // rate is stable, so the test can state the real property instead.
+  test('Cautious survives 30 ticks under most seeds', () => {
+    const seeds = Array.from({ length: 20 }, (_, i) => i + 1);
+    const lived = seeds.filter((seed) => survives('cautious', seed));
+    assert(
+      lived.length >= 14,
+      `expected Cautious to survive most of ${seeds.length} seeded runs, survived ${lived.length}`,
+    );
+  });
 });
 
 suite('space-aware algorithms', () => {

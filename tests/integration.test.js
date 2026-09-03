@@ -51,19 +51,18 @@ suite('invariants hold across every tick', () => {
 });
 
 suite('the AI ladder actually ranks', () => {
-  // Statistical, because three algorithms make random choices. The margin is
-  // deliberately loose — this is a smoke test that lookahead beats no
-  // lookahead, not a benchmark.
+  // Statistical in shape — a sample of games rather than one — but not random:
+  // every game runs under an explicit seed, so the sample is the same on every
+  // machine and every run. The margins stay loose because this is a smoke test
+  // that lookahead beats no lookahead, not a benchmark.
   test('Strategist beats Drunk in the large majority of games', () => {
-    const games = 15;
-    let strategistWins = 0;
-    for (let i = 0; i < games; i++) {
-      const { state } = playGame('strategist', 'drunk', SMALL);
-      if (state.winner === 'p1') strategistWins++;
-    }
+    const seeds = Array.from({ length: 15 }, (_, i) => i + 1);
+    const wins = seeds.filter(
+      (seed) => playGame('strategist', 'drunk', { ...SMALL, seed }).state.winner === 'p1',
+    ).length;
     assert(
-      strategistWins >= games * 0.8,
-      `expected Strategist to win at least 80% of ${games} games, won ${strategistWins}`,
+      wins >= seeds.length * 0.8,
+      `expected Strategist to win at least 80% of ${seeds.length} games, won ${wins}`,
     );
   });
 
@@ -78,7 +77,7 @@ suite('the AI ladder actually ranks', () => {
 
   function averageTicks(a, b, games) {
     let total = 0;
-    for (let i = 0; i < games; i++) total += playGame(a, b, SMALL).ticks;
+    for (let seed = 1; seed <= games; seed++) total += playGame(a, b, { ...SMALL, seed }).ticks;
     return total / games;
   }
 });
@@ -96,6 +95,33 @@ suite('determinism', () => {
       JSON.stringify(a.state.slugs.map((s) => s.path)),
       JSON.stringify(b.state.slugs.map((s) => s.path)),
       'both slugs should trace identical trails',
+    );
+  });
+
+  // The stronger version: even the algorithms that make random choices replay
+  // identically under a seed. This is what removed the flakiness — before the
+  // rng was injectable, a Drunk or Cautious game could not be reproduced at
+  // all, so any assertion over one was a coin flip.
+  test('a seeded game involving random algorithms replays identically', () => {
+    const a = playGame('cautious', 'drunk', { ...SMALL, seed: 7 });
+    const b = playGame('cautious', 'drunk', { ...SMALL, seed: 7 });
+    eq(a.ticks, b.ticks, 'same seed should take the same number of ticks');
+    eq(a.state.winner, b.state.winner);
+    eq(
+      JSON.stringify(a.state.slugs.map((s) => s.path)),
+      JSON.stringify(b.state.slugs.map((s) => s.path)),
+      'both slugs should trace identical trails',
+    );
+  });
+
+  test('different seeds produce different games', () => {
+    const a = playGame('cautious', 'drunk', { ...SMALL, seed: 7 });
+    const b = playGame('cautious', 'drunk', { ...SMALL, seed: 8 });
+    assert(
+      a.ticks !== b.ticks ||
+        JSON.stringify(a.state.slugs.map((s) => s.path)) !==
+          JSON.stringify(b.state.slugs.map((s) => s.path)),
+      'two different seeds produced an identical game — the seed is not reaching the algorithms',
     );
   });
 });

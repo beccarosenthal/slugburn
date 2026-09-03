@@ -10,6 +10,12 @@
 //   hugger       — one cell ahead + its immediate surroundings
 //   cartographer — every cell it could ever reach (flood fill)
 //   strategist   — every cell, plus every cell the OPPONENT could reach
+//
+// Randomness is injected, never reached for. Drunk and Cautious take an `rng`
+// argument defaulting to Math.random, so the browser behaves exactly as before
+// while tests can pass a seeded generator and get a reproducible game. Without
+// this the two random algorithms make the suite non-deterministic, and a test
+// like "Cautious survives 30 ticks" is a coin flip rather than an assertion.
 
 import { DIRS, queueTurn } from './state.js';
 
@@ -87,8 +93,8 @@ function bfs(state, startIndex, grid) {
   return { dist, reachable: tail };
 }
 
-function pickRandom(list) {
-  return list[Math.floor(Math.random() * list.length)];
+function pickRandom(list, rng) {
+  return list[Math.floor(rng() * list.length)];
 }
 
 // Score every candidate direction and take the best, breaking ties in favour
@@ -115,8 +121,8 @@ export const ALGORITHMS = [
     id: 'drunk',
     name: 'Drunk',
     blurb: 'Picks any legal turn at random. Looks at nothing, dies to its own trail almost immediately. The baseline that shows why lookahead matters.',
-    pick(state, slug) {
-      return pickRandom(legalDirs(slug));
+    pick(state, slug, opponent, rng = Math.random) {
+      return pickRandom(legalDirs(slug), rng);
     },
   },
 
@@ -124,13 +130,13 @@ export const ALGORITHMS = [
     id: 'cautious',
     name: 'Cautious',
     blurb: 'Checks one cell ahead and picks randomly among moves that do not kill it this tick. Survives far longer than Drunk, but happily wanders into a dead end it cannot see.',
-    pick(state, slug) {
+    pick(state, slug, opponent, rng = Math.random) {
       const grid = buildGrid(state);
       const safe = safeDirs(state, slug, grid);
       if (!safe.length) return slug.dir;
-      return safe.includes(slug.dir) && Math.random() < 0.8
+      return safe.includes(slug.dir) && rng() < 0.8
         ? slug.dir
-        : pickRandom(safe);
+        : pickRandom(safe, rng);
     },
   },
 
@@ -231,13 +237,13 @@ export const byId = (id) => ALGORITHMS.find((a) => a.id === id) ?? null;
 // no-reversal rule applies to AI for free and no algorithm can write to state
 // directly. Both the browser loop and the test harness call this, so tests
 // exercise the real decision path rather than a reimplementation of it.
-export function driveAI(state, controllers) {
+export function driveAI(state, controllers, rng = Math.random) {
   for (const slug of state.slugs) {
     if (!slug.alive) continue;
     const algo = byId(controllers[slug.id]);
     if (!algo) continue;
     const opponent = state.slugs.find((s) => s.id !== slug.id);
-    const dir = algo.pick(state, slug, opponent);
+    const dir = algo.pick(state, slug, opponent, rng);
     if (dir) state = queueTurn(state, slug.id, dir);
   }
   return state;
