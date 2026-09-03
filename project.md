@@ -74,7 +74,15 @@ capsule/shield/bolt (three distinct power-ups).
    (2 slug sets, 2 trail tilesets, 1 death FX, border tiles) and hardcode them
    in a JS atlas object. Auto-detection is a fun problem that isn't the
    exercise.
-3. **Extension pick** — deferred until the core loop is solid. The sheet
+3. ~~**Extension pick**~~ — **chosen: AI opponents** (`src/ai.js`). Five
+   algorithms, selectable per seat, so either slug can be human or AI and
+   AI-vs-AI is watchable. They form a ladder by how much of the board each one
+   looks at: Drunk (nothing) → Cautious (one cell) → Wall Hugger (one cell plus
+   its surroundings) → Cartographer (flood fill of reachable space) →
+   Strategist (flood fill from both slugs, maximising Voronoi territory).
+   AI moves are queued through the same `queueTurn` a keypress uses, so the
+   no-reversal rule applies to them and they can't write to state directly.
+   Original candidate list below, kept for context. The sheet
    shifts the ranking, since art already exists for several: obstacles
    (tiles + mines supplied) > power-ups (three sprites + HUD supplied) >
    increasing speed (no art needed) > AI opponent (no art, most logic).

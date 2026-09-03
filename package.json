@@ -1,0 +1,11 @@
+{
+  "name": "slugburn",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Rocket-powered cyberpunk slugs battle on a neon grid.",
+  "scripts": {
+    "start": "python3 serve.py 8123",
+    "test": "node tests/run.js"
+  }
+}
